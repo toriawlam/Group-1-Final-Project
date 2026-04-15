@@ -1,2 +1,3 @@
-# Group-1-Final-Project
-Dannon, Shlok, Emma, Victoria, Kriti
+# DS 2002 Final Project
+Compute Collective: Dannon, Shlok, Emma, Victoria, Kriti
+* working on Project B: Text Analyzer
