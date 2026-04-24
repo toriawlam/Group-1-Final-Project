@@ -10,9 +10,10 @@ import argparse
 import logging
 import datetime
 
-mongo_url = 'mongodb+srv://Shlok72:Ds2002project@cluster0.d38r96k.mongodb.net/'
-user = 'Shlok72'
-pwd = 'Ds2002project'
+# load appropriate url, username, and password in ~/.bashrc file
+mongo_url = os.environ.get('MONGODB_FINAL_URL')
+user = os.environ.get('MONGODB_FINAL_USER')
+pwd = os.environ.get('MONGODB_PWD')
 
 def parse_args():
     try:
