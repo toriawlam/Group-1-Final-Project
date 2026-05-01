@@ -1,40 +1,43 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# this script will accept a url to a downloadable plain-text source, read environment variables
-
-# imports
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 import sys
 import os
-import argparse
 import logging
 import datetime
 
-# load appropriate url, username, and password in ~/.bashrc file
-mongo_url = os.environ.get('MONGODB_FINAL_URL')
-user = os.environ.get('MONGODB_FINAL_USER')
-pwd = os.environ.get('MONGODB_PWD')
+mongo_uri = os.environ.get("MONGO_URI")
+db_name = os.environ.get("MONGO_DB_NAME", "text_library")
+collection_name = os.environ.get("MONGO_COLLECTION_NAME", "texts")
 
 def parse_args():
     try:
-        url = sys.argv[1] # returns command line input after script is called
+        url = sys.argv[1]
     except IndexError:
-        logging.error(f"Usage: python {sys.argv[0]} <url>")
+        logging.error("Usage: python3 " + sys.argv[0] + " <url>")
         sys.exit(1)
+
     return url
 
 def check_url(this_url):
-    client = MongoClient(mongo_url, username=user, password=pwd,connectTimeoutMS=200,retryWrites=True)
-    db = client.text_library
-    # check to see if url exists in database collection
-    if db.texts.find_one({'url':this_url}):
-        print("This URL already exists in the text library!")
+    if not mongo_uri:
+        print("ERROR: MONGO_URI is not set.")
+        sys.exit(1)
+
+    client = MongoClient(mongo_uri)
+    db = client[db_name]
+    collection = db[collection_name]
+
+    if collection.find_one({"url": this_url}):
+        print("This URL already exists in the text library.")
     else:
-        db.texts.insert_one({'url': this_url,
-                            'status': 'unprocessed',
-                            'added_at': datetime.datetime.now().isoformat()})
-        print("This URL has been added to the text library!")
-    
+        collection.insert_one({
+            "url": this_url,
+            "status": "unprocessed",
+            "added_at": datetime.datetime.utcnow()
+        })
+        print("This URL has been added to the text library.")
+
     client.close()
 
 def main():
@@ -43,7 +46,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    
-
-

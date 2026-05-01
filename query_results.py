@@ -1,85 +1,58 @@
 import os
-import sys
-import json
 from pymongo import MongoClient
 
-def get_collection():
-    """Connects to MongoDB using environment variables."""
-    mongo_uri = os.environ.get("MONGO_URI")
-    db_name = os.environ.get("MONGO_DB_NAME")
-    collection_name = os.environ.get("MONGO_COLLECTION_NAME")
+mongo_uri = os.environ.get("MONGO_URI")
+db_name = os.environ.get("MONGO_DB_NAME", "text_library")
+collection_name = os.environ.get("MONGO_COLLECTION_NAME", "texts")
 
-    if not mongo_uri or not db_name or not collection_name:
-        print("Error: Missing database environment variables.")
-        sys.exit(1)
+if not mongo_uri:
+    print("ERROR: MONGO_URI is not set.")
+    exit()
 
-    client = MongoClient(mongo_uri)
-    db = client[db_name]
-    return db[collection_name]
+client = MongoClient(mongo_uri)
+db = client[db_name]
+collection = db[collection_name]
 
-def show_pipeline_summary(collection):
-    """Prints a high-level summary of the entire database."""
-    total_docs = collection.count_documents({})
-    unprocessed = collection.count_documents({"status": "unprocessed"})
-    processing = collection.count_documents({"status": "processing"})
-    completed = collection.count_documents({"status": "completed"})
+total_count = collection.count_documents({})
+unprocessed_count = collection.count_documents({"status": "unprocessed"})
+processing_count = collection.count_documents({"status": "processing"})
+completed_count = collection.count_documents({"status": "completed"})
+analyzed_count = collection.count_documents({"status": "analyzed"})
+error_count = collection.count_documents({"status": "error"})
 
-    print("\n" + "="*30)
-    print(" PIPELINE STATUS SUMMARY")
-    print("="*30)
-    print(f"Total Texts Tracked: {total_docs}")
-    print(f"  - Unprocessed: {unprocessed}")
-    print(f"  - Processing:  {processing}")
-    print(f"  - Completed:   {completed}")
-    print("="*30 + "\n")
+print("==============================")
+print("PIPELINE STATUS SUMMARY")
+print("==============================")
+print("Total Texts Tracked:", total_count)
+print("- Unprocessed:", unprocessed_count)
+print("- Processing:", processing_count)
+print("- Completed:", completed_count)
+print("- Analyzed:", analyzed_count)
+print("- Errors:", error_count)
+print("==============================")
 
-def search_specific_url(collection, search_url):
-    """Finds and prints the details for a specific URL."""
-    doc = collection.find_one({"url": search_url}, {"_id": 0}) # _id: 0 hides the messy MongoDB object ID
+print("\nCOMPLETED / ANALYZED RECORDS")
+print("==============================")
 
-    if not doc:
-        print(f"\nNo record found for URL: {search_url}\n")
-        return
+completed_records = collection.find({
+    "$or": [
+        {"status": "completed"},
+        {"status": "analyzed"}
+    ]
+})
 
-    print("\n" + "="*30)
-    print(" RECORD DETAILS")
-    print("="*30)
-    
-    # Print the basic info
-    print(f"URL: {doc.get('url')}")
-    print(f"Status: {doc.get('status').upper()}")
-    print(f"Added At: {doc.get('added_at')}")
+for doc in completed_records:
+    print("Source:", doc.get("source_file_path", doc.get("url", "N/A")))
+    print("Result CSV:", doc.get("result_file_path", "N/A"))
+    print("Summary:", doc.get("summary_statistics", "N/A"))
+    print("------------------------------")
 
-    # If Step 5 has added analysis metrics, print them out nicely
-    if "analysis_results" in doc:
-        print("\n--- Analysis Metrics ---")
-        # Pretty print the dictionary of results
-        print(json.dumps(doc["analysis_results"], indent=4))
-    elif doc.get("status") == "completed":
-        print("\nStatus is completed, but no analysis metrics were found.")
-    else:
-        print("\nAnalysis pending...")
-        
-    print("="*30 + "\n")
+print("\nUNPROCESSED RECORDS")
+print("==============================")
 
-def main():
-    collection = get_collection()
+unprocessed_records = collection.find({"status": "unprocessed"})
 
-    # If the user runs `python query_results.py` (no arguments)
-    if len(sys.argv) == 1:
-        show_pipeline_summary(collection)
-        
-    # If the user runs `python query_results.py <url>` (1 argument)
-    elif len(sys.argv) == 2:
-        search_url = sys.argv[1].strip()
-        search_specific_url(collection, search_url)
-        
-    # If they passed too many arguments
-    else:
-        print("Usage:")
-        print("  View summary: python3 query_results.py")
-        print("  Search URL:   python3 query_results.py <url>")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+for doc in unprocessed_records:
+    print("Source:", doc.get("source_file_path", doc.get("url", "N/A")))
+    print("Document ID:", doc.get("_id"))
+    print("------------------------------")
